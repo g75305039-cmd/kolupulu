@@ -1,0 +1,319 @@
+```html
+<!DOCTYPE html>
+<html lang="te">
+<head>
+<meta charset="UTF-8">
+<title>దేవాలయ విరాళం</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+    margin:0;
+    font-family:Arial;
+    color:white;
+    text-align:center;
+    overflow-x:hidden;
+}
+
+#bgvideo {
+    position:fixed;
+    top:0; left:0;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    z-index:-1;
+}
+
+.page { display:none; padding:20px; min-height:100vh; }
+.active { display:block; }
+
+.container, .receipt-box {
+    width:90%;
+    max-width:450px;
+    margin:auto;
+    margin-top:80px;
+    background:rgba(0,0,0,0.8);
+    padding:30px;
+    border-radius:12px;
+    border:1px solid #ff9800;
+}
+
+input {
+    width:100%;
+    padding:12px;
+    margin:10px 0;
+    border:none;
+    border-radius:6px;
+}
+
+button {
+    width:100%;
+    padding:12px;
+    background:#ff9800;
+    border:none;
+    border-radius:6px;
+    color:white;
+    cursor:pointer;
+    font-weight:bold;
+}
+
+button:hover { background:#e68900; }
+
+table {
+    width:100%;
+    border-collapse:collapse;
+    background:white;
+    color:black;
+}
+
+th { background:#ff9800; color:white; }
+td { padding:8px; border-bottom:1px solid #ddd; }
+
+.del-btn { background:red; }
+.edit-btn { background:green; }
+
+/* 🔥 FINAL PRINT BIG SIZE */
+@media print {
+
+    @page { margin:0; }
+
+    body {
+        margin:0;
+        background:white;
+    }
+
+    body * {
+        visibility:hidden;
+    }
+
+    .receipt-box, .receipt-box * {
+        visibility:visible;
+    }
+
+    .receipt-box {
+        position:fixed;
+        top:50%;
+        left:50%;
+        transform:translate(-50%, -50%);
+        
+        width:80%;
+        max-width:650px;
+        padding:40px;
+
+        background:white;
+        color:black;
+        border:3px solid black;
+        text-align:center;
+    }
+
+    button {
+        display:none !important;
+    }
+
+    /* 🔥 BIG TEXT */
+    h2 {
+        font-size:32px;
+        margin-bottom:20px;
+    }
+
+    .receipt-print {
+        color:red;
+        font-size:28px;
+        font-weight:bold;
+        margin:10px 0;
+    }
+
+    .name-print {
+        color:blue;
+        font-size:28px;
+        font-weight:bold;
+        margin:10px 0;
+    }
+
+    .amount-print {
+        color:green;
+        font-size:32px;
+        font-weight:bold;
+        margin:15px 0;
+    }
+
+    p {
+        font-size:22px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<video autoplay muted loop id="bgvideo">
+<source src="https://v.ftcdn.net/16/61/35/96/240_F_1661359658_5T8XR3sWFASPlYh4UW4EfMjXbrbUyalg_ST.mp4">
+</video>
+
+<!-- HOME -->
+<div id="homePage" class="page active">
+<div class="container">
+<h2>🛕 ఓం శ్రీ చౌడేశ్వరి దేవియే నమః</h2>
+
+<form id="donationForm">
+<input type="text" id="receiptInput" placeholder="రసీదు సంఖ్య" required>
+<input type="text" id="nameInput" placeholder="పేరు" required>
+<input type="number" id="amountInput" placeholder="మొత్తం" required>
+<button type="submit">SAVE</button>
+</form>
+
+<span onclick="showPage('historyPage')" style="cursor:pointer;color:#ffd54f;">
+చరిత్ర చూడండి
+</span>
+</div>
+</div>
+
+<!-- RECEIPT -->
+<div id="receiptPage" class="page">
+<div class="receipt-box">
+<h2>🛕 జ్యోతుల మహోత్సవం</h2>
+
+<p class="receipt-print">రసీదు: <span id="resReceipt"></span></p>
+<p class="name-print">పేరు: <span id="resName"></span></p>
+<p class="amount-print">₹ <span id="resAmount"></span></p>
+<p>తేదీ: <span id="resDate"></span></p>
+
+<button onclick="window.print()">PRINT</button>
+<br><br>
+
+<span onclick="showPage('homePage')">HOME</span> |
+<span onclick="showPage('historyPage')">HISTORY</span>
+
+</div>
+</div>
+
+<!-- HISTORY -->
+<div id="historyPage" class="page">
+<div class="container" style="max-width:800px;">
+<h2>చరిత్ర</h2>
+
+<input type="text" id="searchInput" placeholder="search..." onkeyup="searchHistory()">
+
+<table>
+<thead>
+<tr>
+<th>Receipt</th>
+<th>Name</th>
+<th>Amount</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="historyTableBody"></tbody>
+</table>
+
+<br>
+<span onclick="showPage('homePage')">← BACK</span>
+</div>
+</div>
+
+<script>
+
+let donations = JSON.parse(localStorage.getItem("data")) || [];
+let editMode = false;
+let editReceipt = null;
+
+function showPage(p){
+document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));
+document.getElementById(p).classList.add('active');
+if(p==="historyPage") loadHistory();
+}
+
+document.getElementById("donationForm").addEventListener("submit",function(e){
+e.preventDefault();
+
+let receipt = receiptInput.value.trim();
+let name = nameInput.value;
+let amount = parseInt(amountInput.value);
+
+let date = new Date().toLocaleString('en-IN', {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+});
+
+if(donations.some(d => d.receipt == receipt && d.receipt != editReceipt)){
+    alert("duplicate receipt!");
+    return;
+}
+
+if(editMode){
+donations = donations.map(d=>{
+if(d.receipt==editReceipt){
+return {receipt,name,amount,date};
+}
+return d;
+});
+editMode=false;
+}else{
+donations.push({receipt,name,amount,date});
+}
+
+localStorage.setItem("data",JSON.stringify(donations));
+
+resReceipt.textContent = receipt;
+resName.textContent = name;
+resAmount.textContent = amount;
+resDate.textContent = date;
+
+showPage("receiptPage");
+this.reset();
+});
+
+function loadHistory(data=donations){
+let html="";
+if(data.length===0){
+html="<tr><td colspan='4'>No data</td></tr>";
+}
+
+data.forEach(d=>{
+html+=`
+<tr>
+<td>${d.receipt}</td>
+<td>${d.name}</td>
+<td>₹${d.amount}</td>
+<td>
+<button class="edit-btn" onclick="editEntry('${d.receipt}')">Edit</button>
+<button class="del-btn" onclick="deleteEntry('${d.receipt}')">Del</button>
+</td>
+</tr>`;
+});
+
+historyTableBody.innerHTML=html;
+}
+
+function deleteEntry(r){
+if(confirm("delete?")){
+donations = donations.filter(d=>d.receipt!=r);
+localStorage.setItem("data",JSON.stringify(donations));
+loadHistory();
+}
+}
+
+function editEntry(r){
+let d = donations.find(x=>x.receipt==r);
+
+receiptInput.value=d.receipt;
+nameInput.value=d.name;
+amountInput.value=d.amount;
+
+editMode=true;
+editReceipt=r;
+
+showPage("homePage");
+}
+
+function searchHistory(){
+let v = searchInput.value.toLowerCase();
+let f = donations.filter(d=>d.name.toLowerCase().includes(v)||d.receipt.includes(v));
+loadHistory(f);
+}
+
+</script>
+
+</body>
+</html>
+```
